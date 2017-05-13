@@ -42,11 +42,11 @@ def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
                                  ystart + j*ystep + xy_window[1])))
     return window_list
 
-def color_hist(img, nbins=32, bins_range=(0, 256)):
+def color_hist(img, nbins=32):
     # Compute the histogram of the RGB channels separately
-    rhist = np.histogram(image[:,:,0], bins=nbins, range=bins_range)
-    ghist = np.histogram(image[:,:,1], bins=nbins, range=bins_range)
-    bhist = np.histogram(image[:,:,2], bins=nbins, range=bins_range)
+    rhist = np.histogram(img[:,:,0], bins=nbins)
+    ghist = np.histogram(img[:,:,1], bins=nbins)
+    bhist = np.histogram(img[:,:,2], bins=nbins)
     # Generating bin centers
     bin_edges = rhist[1]
     bin_centers = (bin_edges[1:]  + bin_edges[0:len(bin_edges)-1])/2
@@ -70,8 +70,7 @@ def bin_spatial(img, color_space='RGB', size=(32, 32)):
         elif color_space == 'YCrCb':
             feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
     else: feature_image = np.copy(img)
-    features = cv2.resize(feature_image, size).ravel() # Remove this line!
-    # Return the feature vector
+    features = cv2.resize(feature_image, size).ravel()
     return features
 
 def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, feature_vec=True):
@@ -92,7 +91,12 @@ def extract_features(img):
     cell_per_block = 2
     pix_per_cell = 8
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    features = get_hog_features(gray, orient, pix_per_cell, cell_per_block)
+
+    hog_features = get_hog_features(gray, orient, pix_per_cell, cell_per_block)
+    (_, _, _, _, hist_features) = color_hist(img)
+    spatial_features = bin_spatial(img)
+
+    features = np.concatenate((hog_features, hist_features, spatial_features))
 
     return features
 
@@ -208,7 +212,7 @@ def main():
 
     classifier = train_classifer(X_data, Y_data)
 
-    img = mpimg.imread('test_images/test1.jpg')
+    img = mpimg.imread('test_images/test6.jpg')
 
     imgcopy = np.copy(img)
     imgcopy = imgcopy.astype(np.float32)
