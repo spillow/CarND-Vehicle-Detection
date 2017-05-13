@@ -169,7 +169,7 @@ def find_cars(img, classifier, scaler):
     heatmap = np.zeros(img.shape[:2])
     heatmap = add_heat(heatmap, candidate_boxes)
     show_img(heatmap, cmap='gray')
-    heatmap = apply_threshold(heatmap, 2)
+    heatmap = apply_threshold(heatmap, 3)
     show_img(heatmap, cmap='gray')
 
     (labeling, num_cars) = label(heatmap)
