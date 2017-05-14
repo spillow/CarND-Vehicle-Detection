@@ -9,6 +9,8 @@ from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from scipy.ndimage.measurements import label
+from moviepy.editor import VideoFileClip
+from IPython.display import HTML
 
 def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
     for (p1, p2) in bboxes:
@@ -165,15 +167,15 @@ def find_labeled_bboxes(img, labeling, num_cars):
 
 def find_cars(img, classifier, scaler):
     candidate_boxes = find_car_candidates(img, classifier, scaler)
-    print(candidate_boxes)
+    #print(candidate_boxes)
     heatmap = np.zeros(img.shape[:2])
     heatmap = add_heat(heatmap, candidate_boxes)
-    show_img(heatmap, cmap='gray')
+    #show_img(heatmap, cmap='gray')
     heatmap = apply_threshold(heatmap, 3)
-    show_img(heatmap, cmap='gray')
+    #show_img(heatmap, cmap='gray')
 
     (labeling, num_cars) = label(heatmap)
-    show_img(labeling, cmap='gray')
+    #show_img(labeling, cmap='gray')
     bboxes = find_labeled_bboxes(img, labeling, num_cars)
 
     return bboxes
@@ -189,6 +191,15 @@ def show_img(img, cmap=None):
     plt.figure()
     plt.imshow(img, cmap)
     plt.show()
+
+def annotate_image(img, classifier, scaler):
+    imgcopy = np.copy(img).astype(np.float32)
+    imgcopy /= 255
+
+    boxes = find_cars(imgcopy, classifier, scaler)
+    img = draw_boxes(img, boxes)
+
+    return img
 
 def main():
     #img = mpimg.imread('test_images/test1.jpg')
@@ -212,17 +223,17 @@ def main():
 
     classifier = train_classifer(X_data, Y_data)
 
-    img = mpimg.imread('test_images/test6.jpg')
+    def process_video(input, output):
+        def process_image(img):
+            return annotate_image(img, classifier, scaler)
+        clip = VideoFileClip(input)
+        clip_output = clip.fl_image(process_image)
+        clip_output.write_videofile(output, audio=False)
 
-    imgcopy = np.copy(img)
-    imgcopy = imgcopy.astype(np.float32)
-    imgcopy /= 255
+    process_video('test_video.mp4', 'output.mp4')
 
-    boxes = find_cars(imgcopy, classifier, scaler)
-
-    draw_boxes(img, boxes)
-
-    show_img(img)
+    #img = mpimg.imread('test_images/test6.jpg')
+    #show_img(annotate_image(img))
 
 if __name__ == '__main__':
     main()
