@@ -103,7 +103,7 @@ def extract_features(img):
 
     features = []
 
-    for space in ['HLS']:
+    for space in ['YCrCb']:
         conv_img = color_convert(img, space)
         hog1 = get_hog_features(conv_img[:,:,0], orient, pix_per_cell, cell_per_block)
         hog2 = get_hog_features(conv_img[:,:,1], orient, pix_per_cell, cell_per_block)
@@ -180,21 +180,29 @@ def find_labeled_bboxes(img, labeling, num_cars):
 
     return boxes
 
-def find_cars(img, classifier, scaler):
+def average_heatmap(heatmap, frame_info):
+    if frame_info is None or len(frame_info) == 0:
+        return heatmap
+
+    return np.mean([f.heatmap for f in frame_info] + [heatmap], axis=0)
+
+def find_cars(img, classifier, scaler, frame_info):
     candidate_boxes = find_car_candidates(img, classifier, scaler)
-    show_img(draw_boxes(np.copy(img), candidate_boxes))
+    #show_img(draw_boxes(np.copy(img), candidate_boxes))
     heatmap = np.zeros(img.shape[:2])
     heatmap = add_heat(heatmap, candidate_boxes)
-    show_img(heatmap, cmap='gray')
-    heatmap = apply_threshold(heatmap, 2)
-    show_img(heatmap, cmap='gray')
+    #show_img(heatmap, cmap='gray')
+    avg_heatmap = average_heatmap(heatmap, frame_info)
+    #show_img(avg_heatmap, cmap='gray')
+    thresh_heatmap = apply_threshold(avg_heatmap, 1)
+    #show_img(thresh_heatmap, cmap='gray')
 
-    (labeling, num_cars) = label(heatmap)
-    show_img(labeling, cmap='gray')
+    (labeling, num_cars) = label(thresh_heatmap)
+    #show_img(labeling, cmap='gray')
     bboxes = find_labeled_bboxes(img, labeling, num_cars)
-    show_img(draw_boxes(np.copy(img), bboxes))
+    #show_img(draw_boxes(np.copy(img), bboxes))
 
-    return bboxes
+    return (bboxes, heatmap)
 
 def sanity_check(boxes):
     # only select boxes of minimum dimensions.
@@ -220,8 +228,9 @@ def show_img(img, cmap=None):
     plt.show()
 
 class FrameInfo:
-    def __init__(self, boxes):
-        self.boxes = boxes
+    def __init__(self, boxes, heatmap):
+        self.boxes   = boxes
+        self.heatmap = heatmap
 
 def rect_format(boxes):
     rects = []
@@ -247,14 +256,14 @@ def annotate_image(img, classifier, scaler, frame_info):
     imgcopy = np.copy(img).astype(np.float32)
     imgcopy /= 255
 
-    boxes = find_cars(imgcopy, classifier, scaler)
+    (boxes, heatmap) = find_cars(imgcopy, classifier, scaler, frame_info)
     boxes = sanity_check(boxes)
-    show_img(draw_boxes(np.copy(img), boxes))
+    #show_img(draw_boxes(np.copy(img), boxes))
     car_boxes = inter_frame_analysis(boxes, frame_info)
 
     img = draw_boxes(img, car_boxes)
 
-    return (img, FrameInfo(boxes))
+    return (img, FrameInfo(boxes, heatmap))
 
 def main():
     #img = mpimg.imread('test_images/test1.jpg')
@@ -291,11 +300,12 @@ def main():
         clip_output = clip.fl_image(process_image)
         clip_output.write_videofile(output, audio=False)
 
-    #process_video('test_video.mp4', 'output.mp4')
+    process_video('test_video.mp4', 'output.mp4')
+    #process_video('project_video.mp4', 'output_full.mp4')
 
-    for path in glob.iglob('test_images/*.jpg'):
-        img = mpimg.imread(path)
-        show_img(annotate_image(img, classifier, scaler, None)[0])
+    #for path in glob.iglob('test_images/*.jpg'):
+    #    img = mpimg.imread(path)
+    #    show_img(annotate_image(img, classifier, scaler, None)[0])
 
 if __name__ == '__main__':
     main()
