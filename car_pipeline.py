@@ -151,7 +151,7 @@ def apply_threshold(heatmap, threshold):
     return heatmap
 
 def find_car_candidates(img, classifier, scaler):
-    window_sizes = [(128, 0.8, 350, None, 640), (64, 0.8, 350, None, 640), (80, 0.97, 410, 410+80, 640)]
+    window_sizes = [(128, 0.8, 400, 650, 640), (64, 0.8, 400, 650, 640), (80, 0.97, 410, 410+80, 640)]
 
     all_boxes = []
     candidate_windows = []
@@ -210,7 +210,7 @@ def sanity_check(boxes):
     # only select boxes of minimum dimensions.
     bs = []
     for (b, ((x1, y1), (x2, y2))) in zip(boxes, boxes):
-        if abs(x1-x2) < 20 or abs(y1-y2) < 20:
+        if abs(x1-x2) < 10 or abs(y1-y2) < 10:
             continue
 
         bs.append(b)
@@ -316,8 +316,9 @@ def main():
         clip_output = clip.fl_image(process_image)
         clip_output.write_videofile(output, audio=False)
 
-    process_video('test_video.mp4', 'output.mp4')
+    #process_video('test_video.mp4', 'output.mp4')
     #process_video('project_video.mp4', 'output_full.mp4')
+    process_video('tough_case.mp4', 'tough_case_anno.mp4')
 
     #for path in glob.iglob('test_images/6*.jpg'):
     #    img = mpimg.imread(path)
