@@ -99,18 +99,13 @@ def extract_features(img):
     cell_per_block = 2
     pix_per_cell = 8
 
-    features = []
+    hog1 = get_hog_features(img[:,:,0], orient, pix_per_cell, cell_per_block)
+    hog2 = get_hog_features(img[:,:,1], orient, pix_per_cell, cell_per_block)
+    hog3 = get_hog_features(img[:,:,2], orient, pix_per_cell, cell_per_block)
+    (_, _, _, _, hist_features) = color_hist(img)
+    spatial_features = bin_spatial(img)
 
-    for space in ['YCrCb']:
-        conv_img = color_convert(img, space)
-        hog1 = get_hog_features(conv_img[:,:,0], orient, pix_per_cell, cell_per_block)
-        hog2 = get_hog_features(conv_img[:,:,1], orient, pix_per_cell, cell_per_block)
-        hog3 = get_hog_features(conv_img[:,:,2], orient, pix_per_cell, cell_per_block)
-        (_, _, _, _, hist_features) = color_hist(conv_img)
-        spatial_features = bin_spatial(conv_img)
-
-        features += [hog1, hog2, hog3, hist_features, spatial_features]
-
+    features = [hog1, hog2, hog3, hist_features, spatial_features]
     features = np.concatenate(features)
 
     return features
@@ -119,7 +114,7 @@ def train_extract_features(filenames):
     features = []
     for file in filenames:
         img = mpimg.imread(file)
-        features.append(extract_features(img))
+        features.append(extract_features(color_convert(img, 'YCrCb')))
 
     return features
 
@@ -155,15 +150,16 @@ def find_car_candidates(img, classifier, scaler):
 
     all_boxes = []
     candidate_windows = []
+    conv_img = color_convert(img, 'YCrCb')
     for (win_size, overlap, ystart, ystop, xstart) in window_sizes:
-        windows = slide_window(img,
+        windows = slide_window(conv_img,
             xy_window=(win_size, win_size),
             xy_overlap=(overlap, overlap),
             y_start_stop=(ystart, ystop),
             x_start_stop=(xstart, None))
         for ((x1, y1), (x2, y2)) in windows:
             all_boxes.append(((x1, y1), (x2, y2)))
-            features = extract_features(cv2.resize(img[y1:y2, x1:x2, :], (64, 64)))
+            features = extract_features(cv2.resize(conv_img[y1:y2, x1:x2, :], (64, 64)))
             features = scaler.transform(np.array(features).reshape(1, -1))
             if classifier.predict(features) == 1:
                 candidate_windows.append(((x1, y1), (x2, y2)))
