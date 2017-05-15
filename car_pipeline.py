@@ -12,7 +12,10 @@ from scipy.ndimage.measurements import label
 from moviepy.editor import VideoFileClip
 from IPython.display import HTML
 
-def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
+def draw_boxes(img, bboxes, thick=6):
+    c = np.max(img)
+    c = 255 if c > 1 else 1
+    color = (0, 0, c)
     for (p1, p2) in bboxes:
         cv2.rectangle(img, p1, p2, color, thick)
 
@@ -57,9 +60,7 @@ def color_hist(img, nbins=32):
     # Return the individual histograms, bin_centers and feature vector
     return rhist, ghist, bhist, bin_centers, hist_features
 
-def bin_spatial(img, color_space='RGB', size=(32, 32)):
-    # Convert image to new color space (if specified)
-    # Use cv2.resize().ravel() to create the feature vector
+def color_convert(img, color_space):
     if color_space != 'RGB':
         if color_space == 'HSV':
             feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
@@ -71,8 +72,13 @@ def bin_spatial(img, color_space='RGB', size=(32, 32)):
             feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
         elif color_space == 'YCrCb':
             feature_image = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
-    else: feature_image = np.copy(img)
-    features = cv2.resize(feature_image, size).ravel()
+    else:
+        feature_image = np.copy(img)
+
+    return feature_image
+
+def bin_spatial(img, size=(32, 32)):
+    features = cv2.resize(img, size).ravel()
     return features
 
 def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, feature_vec=True):
@@ -84,7 +90,8 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, featu
         pixels_per_cell=(pix_per_cell, pix_per_cell),
         cells_per_block=(cell_per_block, cell_per_block),
         visualise=vis,
-        feature_vector=feature_vec)
+        feature_vector=feature_vec,
+        transform_sqrt=True)
 
     return output
 
@@ -92,13 +99,21 @@ def extract_features(img):
     orient = 9
     cell_per_block = 2
     pix_per_cell = 8
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    #gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
-    hog_features = get_hog_features(gray, orient, pix_per_cell, cell_per_block)
-    (_, _, _, _, hist_features) = color_hist(img)
-    spatial_features = bin_spatial(img)
+    features = []
 
-    features = np.concatenate((hog_features, hist_features, spatial_features))
+    for space in ['HLS']:
+        conv_img = color_convert(img, space)
+        hog1 = get_hog_features(conv_img[:,:,0], orient, pix_per_cell, cell_per_block)
+        hog2 = get_hog_features(conv_img[:,:,1], orient, pix_per_cell, cell_per_block)
+        hog3 = get_hog_features(conv_img[:,:,2], orient, pix_per_cell, cell_per_block)
+        (_, _, _, _, hist_features) = color_hist(conv_img)
+        spatial_features = bin_spatial(conv_img)
+
+        features += [hog1, hog2, hog3, hist_features, spatial_features]
+
+    features = np.concatenate(features)
 
     return features
 
@@ -167,18 +182,30 @@ def find_labeled_bboxes(img, labeling, num_cars):
 
 def find_cars(img, classifier, scaler):
     candidate_boxes = find_car_candidates(img, classifier, scaler)
-    #print(candidate_boxes)
+    show_img(draw_boxes(np.copy(img), candidate_boxes))
     heatmap = np.zeros(img.shape[:2])
     heatmap = add_heat(heatmap, candidate_boxes)
-    #show_img(heatmap, cmap='gray')
-    heatmap = apply_threshold(heatmap, 3)
-    #show_img(heatmap, cmap='gray')
+    show_img(heatmap, cmap='gray')
+    heatmap = apply_threshold(heatmap, 2)
+    show_img(heatmap, cmap='gray')
 
     (labeling, num_cars) = label(heatmap)
-    #show_img(labeling, cmap='gray')
+    show_img(labeling, cmap='gray')
     bboxes = find_labeled_bboxes(img, labeling, num_cars)
+    show_img(draw_boxes(np.copy(img), bboxes))
 
     return bboxes
+
+def sanity_check(boxes):
+    # only select boxes of minimum dimensions.
+    bs = []
+    for (b, ((x1, y1), (x2, y2))) in zip(boxes, boxes):
+        if abs(x1-x2) < 20 or abs(y1-y2) < 20:
+            continue
+
+        bs.append(b)
+
+    return bs
 
 def normalize_data(*inputs):
     X = np.vstack(inputs).astype(np.float64)
@@ -192,14 +219,42 @@ def show_img(img, cmap=None):
     plt.imshow(img, cmap)
     plt.show()
 
-def annotate_image(img, classifier, scaler):
+class FrameInfo:
+    def __init__(self, boxes):
+        self.boxes = boxes
+
+def rect_format(boxes):
+    rects = []
+    for ((x1,y1), (x2, y2)) in boxes:
+        rects.append((int(x1), int(y1), int(abs(x2-x1)), int(abs(y2-y1))))
+
+    return rects
+
+def inter_frame_analysis(boxes, frame_info):
+    if frame_info is None:
+        return boxes
+    elif len(frame_info) == 0:
+        return []
+
+    (rects, _) = cv2.groupRectangles(
+        rect_format(boxes) + rect_format(frame_info[-1].boxes),
+        groupThreshold=1,
+        eps=0.3)
+
+    return [((x, y), (x+w, y+h)) for (x,y,w,h) in rects]
+
+def annotate_image(img, classifier, scaler, frame_info):
     imgcopy = np.copy(img).astype(np.float32)
     imgcopy /= 255
 
     boxes = find_cars(imgcopy, classifier, scaler)
-    img = draw_boxes(img, boxes)
+    boxes = sanity_check(boxes)
+    show_img(draw_boxes(np.copy(img), boxes))
+    car_boxes = inter_frame_analysis(boxes, frame_info)
 
-    return img
+    img = draw_boxes(img, car_boxes)
+
+    return (img, FrameInfo(boxes))
 
 def main():
     #img = mpimg.imread('test_images/test1.jpg')
@@ -224,16 +279,23 @@ def main():
     classifier = train_classifer(X_data, Y_data)
 
     def process_video(input, output):
+        frame_info = []
         def process_image(img):
-            return annotate_image(img, classifier, scaler)
+            nonlocal frame_info
+            (img, frameinfo) = annotate_image(img, classifier, scaler, frame_info)
+            frame_info.append(frameinfo)
+            if len(frame_info) > 4:
+                frame_info.pop(0)
+            return img
         clip = VideoFileClip(input)
         clip_output = clip.fl_image(process_image)
         clip_output.write_videofile(output, audio=False)
 
-    process_video('test_video.mp4', 'output.mp4')
+    #process_video('test_video.mp4', 'output.mp4')
 
-    #img = mpimg.imread('test_images/test6.jpg')
-    #show_img(annotate_image(img))
+    for path in glob.iglob('test_images/*.jpg'):
+        img = mpimg.imread(path)
+        show_img(annotate_image(img, classifier, scaler, None)[0])
 
 if __name__ == '__main__':
     main()
