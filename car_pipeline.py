@@ -83,7 +83,6 @@ def bin_spatial(img, size=(32, 32)):
 
 def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, feature_vec=True):
     # Use skimage.hog() to get both features and a visualization
-    # TODO: transform_sqrt?
     output = hog(
         img,
         orientations=orient,
@@ -99,7 +98,6 @@ def extract_features(img):
     orient = 9
     cell_per_block = 2
     pix_per_cell = 8
-    #gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
     features = []
 
@@ -153,21 +151,24 @@ def apply_threshold(heatmap, threshold):
     return heatmap
 
 def find_car_candidates(img, classifier, scaler):
-    window_sizes = [128, 64]
+    window_sizes = [(128, 0.8, 350, None, 640), (64, 0.8, 350, None, 640), (80, 0.97, 410, 410+80, 640)]
 
+    all_boxes = []
     candidate_windows = []
-    for win_size in window_sizes:
+    for (win_size, overlap, ystart, ystop, xstart) in window_sizes:
         windows = slide_window(img,
             xy_window=(win_size, win_size),
-            xy_overlap=(0.8, 0.8),
-            y_start_stop=(350, None))
+            xy_overlap=(overlap, overlap),
+            y_start_stop=(ystart, ystop),
+            x_start_stop=(xstart, None))
         for ((x1, y1), (x2, y2)) in windows:
+            all_boxes.append(((x1, y1), (x2, y2)))
             features = extract_features(cv2.resize(img[y1:y2, x1:x2, :], (64, 64)))
             features = scaler.transform(np.array(features).reshape(1, -1))
             if classifier.predict(features) == 1:
                 candidate_windows.append(((x1, y1), (x2, y2)))
 
-    return candidate_windows
+    return (candidate_windows, all_boxes)
 
 def find_labeled_bboxes(img, labeling, num_cars):
     boxes = []
@@ -187,7 +188,8 @@ def average_heatmap(heatmap, frame_info):
     return np.mean([f.heatmap for f in frame_info] + [heatmap], axis=0)
 
 def find_cars(img, classifier, scaler, frame_info):
-    candidate_boxes = find_car_candidates(img, classifier, scaler)
+    (candidate_boxes, all_boxes) = find_car_candidates(img, classifier, scaler)
+    #show_img(draw_boxes(np.copy(img), all_boxes))
     #show_img(draw_boxes(np.copy(img), candidate_boxes))
     heatmap = np.zeros(img.shape[:2])
     heatmap = add_heat(heatmap, candidate_boxes)
@@ -277,6 +279,20 @@ def main():
 
     #return
 
+    #def dump_video(input, output):
+    #    cnt = 0
+    #    def process_image(img):
+    #        nonlocal cnt
+    #        mpimg.imsave("clean_output/{}.jpg".format(cnt), img)
+    #        cnt += 1
+    #        return img
+    #    clip = VideoFileClip(input)
+    #    clip_output = clip.fl_image(process_image)
+    #    clip_output.write_videofile(output, audio=False)
+
+    #dump_video('project_video.mp4', 'project_ident.mp4')
+    #return
+
     car_features    = train_extract_features(glob.iglob('training_data/vehicles/**/*.png'))
     notcar_features = train_extract_features(glob.iglob('training_data/non-vehicles/**/*.png'))
     #car_features    = train_extract_features(glob.iglob('garbage_test/*.png'))
@@ -303,7 +319,7 @@ def main():
     process_video('test_video.mp4', 'output.mp4')
     #process_video('project_video.mp4', 'output_full.mp4')
 
-    #for path in glob.iglob('test_images/*.jpg'):
+    #for path in glob.iglob('test_images/6*.jpg'):
     #    img = mpimg.imread(path)
     #    show_img(annotate_image(img, classifier, scaler, None)[0])
 
