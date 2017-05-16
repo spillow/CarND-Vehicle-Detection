@@ -95,14 +95,14 @@ Here's an example result showing the heatmap from a series of frames of video, t
 ### Here is the output of `scipy.ndimage.measurements.label()` on one of the frames:
 ![alt text][image7]
 
-### Here the resulting bounding boxes are drawn onto the last frame in the series:
+### Here the resulting bounding boxes are drawn onto one of the frames in the series:
 ![alt text][image8]
 
 ---
 
-###Discussion
+### Discussion
 
-####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
 As always, the initial work goes into getting the classifier accuracy to a good enough level.  Being a detector, 99% really is about the minimum that can be tolerated.  We're lucky here to have the redundancy of video to help weed out false positives.
 

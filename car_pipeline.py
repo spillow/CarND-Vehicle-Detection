@@ -304,30 +304,6 @@ def annotate_image(img, classifier, scaler, frame_info):
     return (img, FrameInfo(boxes, heatmap))
 
 def main():
-
-    images = []
-    heats = []
-    for f in glob.iglob('crack_run/image*.png'):
-        images.append(mpimg.imread(f))
-
-    for f in glob.iglob('crack_run/heat*.png'):
-        heats.append(mpimg.imread(f))
-
-    plt.figure(figsize=(8,20))
-    for (i, (img, heat)) in enumerate(zip(images, heats)):
-        plt.subplot(6, 2, 2*i+1)
-        plt.title("Image {}".format(i+1))
-        plt.imshow(img)
-
-        plt.subplot(6, 2, 2*i+2)
-        plt.title("Heat {}".format(i+1))
-        plt.imshow(heat)
-
-    plt.tight_layout()
-    plt.show()
-
-    return
-
     car_features    = train_extract_features(glob.iglob('training_data/vehicles/**/*.png'))
     notcar_features = train_extract_features(glob.iglob('training_data/non-vehicles/**/*.png'))
 
@@ -353,13 +329,13 @@ def main():
         clip_output = clip.fl_image(process_image)
         clip_output.write_videofile(output, audio=False)
 
-    #process_video('project_video.mp4', 'output.mp4')
+    process_video('project_video.mp4', 'output.mp4')
 
     # uncomment the following section to do tests on individual images
 
-    for path in glob.iglob('test_images/10*.jpg'):
-        img = mpimg.imread(path)
-        show_img(annotate_image(img, classifier, scaler, None)[0])
+    #for path in glob.iglob('test_images/10*.jpg'):
+    #    img = mpimg.imread(path)
+    #    show_img(annotate_image(img, classifier, scaler, None)[0])
 
 if __name__ == '__main__':
     main()
