@@ -1,3 +1,11 @@
+# Files in this project:
+
+* writeup.md
+* output.mp4
+* car_pipeline.py
+
+--------------
+
 # Vehicle Detection
 [![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
 
