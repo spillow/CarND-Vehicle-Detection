@@ -36,36 +36,37 @@ You're reading it!
 
 #### 1. Explain how (and identify where in your code) you extracted HOG features from the training images.
 
-The code for this step is contained in lines # through # of the file called `car_pipeline.py`.  TODO!!!
+The code for this step is contained in lines # through # of the file called `car_pipeline.py` in the function `get_hot_features()`.  TODO!!!
 
 I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an example of one of each of the `vehicle` and `non-vehicle` classes:
 
 ![alt text][image1]
 
-I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  The starting values of `orientations = 9`, `pixels_per_cell = 8`, and `cells_per_block = 2` was ultimately modified to `orientations = 11`, `pixels_per_cell = 16`, and `cells_per_block = 2`.  While both yielded classifiers of roughly 99% test accuracy, the latter numbers yieled a 33% performance improvement which was a big win with the slowing processing times of this project.  I grabbed random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
+I then explored different color spaces and different `skimage.hog()` parameters (`orientations`, `pixels_per_cell`, and `cells_per_block`).  The starting values of `orientations = 9`, `pixels_per_cell = 8`, and `cells_per_block = 2` was ultimately modified to `orientations = 11`, `pixels_per_cell = 16`, and `cells_per_block = 2`. I grabbed random images from each of the two classes and displayed them to get a feel for what the `skimage.hog()` output looks like.
 
 Here is an example using the `YCrCb` color space and HOG parameters of `orientations=9`, `pixels_per_cell=(16, 16)` and `cells_per_block=(2, 2)`:
 
 
 ![alt text][image2]
 
-####2. Explain how you settled on your final choice of HOG parameters.
+#### 2. Explain how you settled on your final choice of HOG parameters.
 
-I tried various combinations of parameters and...
+While the initial and final setting of values both yielded classifiers of roughly 99% test accuracy, the latter numbers yieled a 33% performance improvement which was a big win with the slow processing times of this project.
 
-####3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
+#### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features, color features, and spatial features.
 
-I trained a linear SVM using...
+I trained a linear SVM using sklearn in the function `train_classifier()` on line TODO!!!.  I used a GridSearch approach as
+the best `C` parameter to control the complexity of the svm decision boundary was not obvious.  Before this point, the HOG, color, and spatial features were extracted from each of the training images, combined into one long feature vector in `extract_features()` on line TODO!!!, and normalized.
 
-###Sliding Window Search
+### Sliding Window Search
 
-####1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
+#### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I decided to search random window positions at random scales all over the image and came up with this (ok just kidding I didn't actually ;):
+I implemented a sliding window search in `slide_window()` on line TODO!!!. Given a region, window size, and amount of overlap, the function emits a list of windows.
 
-![alt text][image3]
+Scales were initially selected such that they would roughly match the sizes of the cars of interest.  I noted that, due to the fact that the training data only had cars with minimal offset from being centered, the training windows needed to be fairly well targeted to the car.  Another set of windows targeted to the road horizon was added with 0.97 overlap to capture cars that I was having difficulty detecting with only the two sets of window sizes (32x32 and 64x64, respectively).
 
-####2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
+#### 2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
 Ultimately I searched on two scales using YCrCb 3-channel HOG features plus spatially binned color and histograms of color in the feature vector, which provided a nice result.  Here are some example images:
 

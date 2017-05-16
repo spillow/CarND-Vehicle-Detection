@@ -157,6 +157,8 @@ def apply_threshold(heatmap, threshold):
     return heatmap
 
 def find_car_candidates(img, classifier, scaler):
+    # For the purposes of speeding up processing, aggresively shrink the search space
+    # to the smallest area of the video as possible.
     window_sizes = [(128, 0.8, 400, 650, 640), (64, 0.8, 400, 650, 640), (80, 0.97, 410, 410+80, 640)]
 
     all_boxes = []
