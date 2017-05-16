@@ -33,7 +33,7 @@ You're reading it!
 
 #### 1. Explain how (and identify where in your code) you extracted HOG features from the training images.
 
-The code for this step is contained in lines # through # of the file called `car_pipeline.py` in the function `get_hot_features()`.  TODO!!!
+The code for this step is contained on line #85 of the file called `car_pipeline.py` in the function `get_hog_features()`.
 
 I started by reading in all the `vehicle` and `non-vehicle` images.  Here is an example of one of each of the `vehicle` and `non-vehicle` classes:
 
@@ -52,14 +52,14 @@ While the initial and final setting of values both yielded classifiers of roughl
 
 #### 3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features, color features, and spatial features.
 
-I trained a linear SVM using sklearn in the function `train_classifier()` on line TODO!!!.  I used a GridSearch approach as
-the best `C` parameter to control the complexity of the svm decision boundary was not obvious.  Before this point, the HOG, color, and spatial features were extracted from each of the training images, combined into one long feature vector in `extract_features()` on line TODO!!!, and normalized.
+I trained a linear SVM using sklearn in the function `train_classifier()` on line #126.  I used a GridSearch approach as
+the best `C` parameter to control the complexity of the svm decision boundary was not obvious.  Before this point, the HOG, color, and spatial features were extracted from each of the training images, combined into one long feature vector in `extract_features()` on line #98, and normalized.
 
 ### Sliding Window Search
 
 #### 1. Describe how (and identify where in your code) you implemented a sliding window search.  How did you decide what scales to search and how much to overlap windows?
 
-I implemented a sliding window search in `slide_window()` on line TODO!!!. Given a region, window size, and amount of overlap, the function emits a list of windows.
+I implemented a sliding window search in `slide_window()` on line #25. Given a region, window size, and amount of overlap, the function emits a list of windows.
 
 Scales were initially selected such that they would roughly match the sizes of the cars of interest.  I noted that, due to the fact that the training data only had cars with minimal offset from being centered, the training windows needed to be fairly well targeted to the car.  Another set of windows targeted to the road horizon was added with 0.97 overlap to capture cars that I was having difficulty detecting with only the two sets of window sizes (32x32 and 64x64, respectively).
 
@@ -86,7 +86,7 @@ False positives were mostly controlled via heatmaps which are dealt with in the 
 
 To coalesce multiple hits into a single detection, `scipy.ndimage.measurements.label()` was used.  After each pixel in the heat map was labeled, I then drew a box around the extent of the entire label assuming that was a car.
 
-Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on the last frame of video:
+Here's an example result showing the heatmap from a series of frames of video, the result of `scipy.ndimage.measurements.label()` and the bounding boxes then overlaid on a frame of video:
 
 ### Here are six frames and their corresponding heatmaps:
 
