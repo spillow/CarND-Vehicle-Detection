@@ -304,28 +304,28 @@ def annotate_image(img, classifier, scaler, frame_info):
     return (img, FrameInfo(boxes, heatmap))
 
 def main():
-    reg_img = mpimg.imread('training_data/vehicles/GTI_Right/image0025.png')
-    img = color_convert(reg_img, 'YCrCb')
-    #show_img(get_hog_features(img[:,:,0], 11, 16, 2, vis=True, feature_vec=False), cmap='gray')
-    (features, hog_imagey)  = get_hog_features(img[:,:,0], 11, 16, 2, vis=True, feature_vec=False)
-    (features, hog_imagecr) = get_hog_features(img[:,:,1], 11, 16, 2, vis=True, feature_vec=False)
-    (features, hog_imagecb) = get_hog_features(img[:,:,2], 11, 16, 2, vis=True, feature_vec=False)
 
-    plt.figure()
-    plt.subplot(141)
-    plt.title('Original Image')
-    plt.imshow(reg_img)
-    plt.subplot(142)
-    plt.title('HOG Y Channel')
-    plt.imshow(hog_imagey, 'gray')
-    plt.subplot(143)
-    plt.title('HOG Cr Channel')
-    plt.imshow(hog_imagecr, 'gray')
-    plt.subplot(144)
-    plt.title('HOG Cb Channel')
-    plt.imshow(hog_imagecb, 'gray')
+    images = []
+    heats = []
+    for f in glob.iglob('crack_run/image*.png'):
+        images.append(mpimg.imread(f))
+
+    for f in glob.iglob('crack_run/heat*.png'):
+        heats.append(mpimg.imread(f))
+
+    plt.figure(figsize=(8,20))
+    for (i, (img, heat)) in enumerate(zip(images, heats)):
+        plt.subplot(6, 2, 2*i+1)
+        plt.title("Image {}".format(i+1))
+        plt.imshow(img)
+
+        plt.subplot(6, 2, 2*i+2)
+        plt.title("Heat {}".format(i+1))
+        plt.imshow(heat)
+
     plt.tight_layout()
     plt.show()
+
     return
 
     car_features    = train_extract_features(glob.iglob('training_data/vehicles/**/*.png'))
@@ -353,13 +353,13 @@ def main():
         clip_output = clip.fl_image(process_image)
         clip_output.write_videofile(output, audio=False)
 
-    process_video('project_video.mp4', 'output.mp4')
+    #process_video('project_video.mp4', 'output.mp4')
 
     # uncomment the following section to do tests on individual images
 
-    #for path in glob.iglob('test_images/484.jpg'):
-    #    img = mpimg.imread(path)
-    #    show_img(annotate_image(img, classifier, scaler, None)[0])
+    for path in glob.iglob('test_images/10*.jpg'):
+        img = mpimg.imread(path)
+        show_img(annotate_image(img, classifier, scaler, None)[0])
 
 if __name__ == '__main__':
     main()
