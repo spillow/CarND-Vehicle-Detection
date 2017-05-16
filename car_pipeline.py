@@ -13,6 +13,7 @@ from moviepy.editor import VideoFileClip
 from IPython.display import HTML
 
 def draw_boxes(img, bboxes, thick=6):
+    "Destructively draw given list of rectangles onto img."
     c = np.max(img)
     c = 255 if c > 1 else 1
     color = (0, 0, c)
@@ -95,10 +96,14 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, featu
     return output
 
 def extract_features(img):
+    # Originally tried orient = 9, and pix_per_cell = 8. Roughly same test
+    # accuracy (~99%) observed but this speeds up processing by ~33%.
     orient = 11
     cell_per_block = 2
     pix_per_cell = 16
 
+    # get hog on all three channels.  This performs slightly better than
+    # initial experiments of HOG only on the grayscale of the image.
     hog1 = get_hog_features(img[:,:,0], orient, pix_per_cell, cell_per_block)
     hog2 = get_hog_features(img[:,:,1], orient, pix_per_cell, cell_per_block)
     hog3 = get_hog_features(img[:,:,2], orient, pix_per_cell, cell_per_block)
@@ -123,6 +128,8 @@ def train_classifer(X_data, Y_data):
     X_train, X_test, Y_train, Y_test = train_test_split(
             X_data, Y_data, test_size=0.2, random_state=rand_state)
 
+    # Search the C parameter space to find the best value of the classifier
+    # to maximize classification accuracy.
     parameters = { 'C' : [1, 10] }
     clf = LinearSVC()
     clf = GridSearchCV(clf, parameters)
@@ -136,6 +143,10 @@ def train_classifer(X_data, Y_data):
     return clf
 
 def add_heat(heatmap, car_candidates):
+    # for every potential car bounding box, increment the
+    # region inside that box.  Multiple hits in the same
+    # region of the image will generate a heatmap that
+    # can be used to weed out false positives.
     for ((x1, y1), (x2, y2)) in car_candidates:
         heatmap[y1:y2, x1:x2] += 1
 
@@ -150,7 +161,9 @@ def find_car_candidates(img, classifier, scaler):
 
     all_boxes = []
     candidate_windows = []
-    conv_img = color_convert(img, 'YUV')
+    # Note: the given video was actually run with this parameter as YUV mismatched
+    # with the above accidentally but results turned out roughly equivalent so I kept it.
+    conv_img = color_convert(img, 'YCrCb')
     for (win_size, overlap, ystart, ystop, xstart) in window_sizes:
         windows = slide_window(conv_img,
             xy_window=(win_size, win_size),
@@ -159,6 +172,8 @@ def find_car_candidates(img, classifier, scaler):
             x_start_stop=(xstart, None))
         for ((x1, y1), (x2, y2)) in windows:
             all_boxes.append(((x1, y1), (x2, y2)))
+            # Walk over each given window and resize as necessary to match the 64x64 size
+            # of the training images. Extract features and classify.
             features = extract_features(cv2.resize(conv_img[y1:y2, x1:x2, :], (64, 64)))
             features = scaler.transform(np.array(features).reshape(1, -1))
             if classifier.predict(features) == 1:
@@ -167,6 +182,7 @@ def find_car_candidates(img, classifier, scaler):
     return (candidate_windows, all_boxes)
 
 def find_labeled_bboxes(img, labeling, num_cars):
+    "Given a labeling of pixels to cars, draw a bounding box around each car."
     boxes = []
     for car_number in range(1, num_cars+1):
         nonzero = (labeling == car_number).nonzero()
@@ -178,6 +194,8 @@ def find_labeled_bboxes(img, labeling, num_cars):
     return boxes
 
 def average_heatmap(heatmap, frame_info):
+    # Useful to weed out false positive 'blips' by averaging heatmaps
+    # over a collection of frames (5 in this implementation).
     if frame_info is None or len(frame_info) == 0:
         return heatmap
 
@@ -212,6 +230,8 @@ def sanity_check(boxes):
         if abs(x1-x2) == 0:
             continue
 
+        # If the aspect ratio is not 'car like' (i.e., too tall),
+        # reject the box.
         if abs(y1-y2) / abs(x1-x2) > 3.0:
             continue
 
@@ -220,6 +240,9 @@ def sanity_check(boxes):
     return bs
 
 def normalize_data(*inputs):
+    # normalization is useful when different features may
+    # be of different scales that could potentially overpower
+    # other features.
     X = np.vstack(inputs).astype(np.float64)
     X_scaler = StandardScaler().fit(X)
     scaled_X = X_scaler.transform(X)
@@ -231,6 +254,8 @@ def show_img(img, cmap=None):
     plt.imshow(img, cmap)
     plt.show()
 
+# Collect a running count of a few frames of information
+# to add in detection of the current frame.
 class FrameInfo:
     def __init__(self, boxes, heatmap):
         self.boxes   = boxes
@@ -243,6 +268,11 @@ def rect_format(boxes):
 
     return rects
 
+# Potentially useful but currently unused.  The idea is to look at rectangles
+# between frames and, if a rectangle is not reasonably paired with a rectangle
+# from the previous frame (i.e., location and area differ too greatly), we reject
+# it.  The utility of this function was useful early on but became less so when
+# heatmap averaging was implemented.
 def inter_frame_analysis(boxes, frame_info):
     if frame_info is None:
         return boxes
@@ -257,6 +287,7 @@ def inter_frame_analysis(boxes, frame_info):
     return [((x, y), (x+w, y+h)) for (x,y,w,h) in rects]
 
 def annotate_image(img, classifier, scaler, frame_info):
+    "Draw boxes around cars using the given classifier."
     imgcopy = np.copy(img).astype(np.float32)
     imgcopy /= 255
 
@@ -271,35 +302,8 @@ def annotate_image(img, classifier, scaler, frame_info):
     return (img, FrameInfo(boxes, heatmap))
 
 def main():
-    #img = mpimg.imread('test_images/test1.jpg')
-    #windows = slide_window(img, xy_window=(128,128))
-    #for (p1, p2) in windows:
-    #    cv2.rectangle(img, p1, p2, color=(0,0,255), thickness=6)
-
-    #plt.figure()
-    #plt.imshow(img)
-    #plt.show()
-
-    #return
-
-    #def dump_video(input, output):
-    #    cnt = 0
-    #    def process_image(img):
-    #        nonlocal cnt
-    #        mpimg.imsave("clean_output/{}.jpg".format(cnt), img)
-    #        cnt += 1
-    #        return img
-    #    clip = VideoFileClip(input)
-    #    clip_output = clip.fl_image(process_image)
-    #    clip_output.write_videofile(output, audio=False)
-
-    #dump_video('project_video.mp4', 'project_ident.mp4')
-    #return
-
     car_features    = train_extract_features(glob.iglob('training_data/vehicles/**/*.png'))
     notcar_features = train_extract_features(glob.iglob('training_data/non-vehicles/**/*.png'))
-    #car_features    = train_extract_features(glob.iglob('garbage_test/*.png'))
-    #notcar_features = train_extract_features(glob.iglob('garbage_test/*.png'))
 
     (X_data, scaler) = normalize_data(car_features, notcar_features)
     Y_data           = np.hstack((np.ones(len(car_features)), np.zeros(len(notcar_features))))
@@ -323,11 +327,9 @@ def main():
         clip_output = clip.fl_image(process_image)
         clip_output.write_videofile(output, audio=False)
 
-    #process_video('test_video.mp4', 'output.mp4')
     process_video('project_video.mp4', 'output_full.mp4')
-    #process_video('tough_case.mp4', 'tough_case_anno.mp4')
-    #process_video('both_cars_tough.mp4', 'both_cars_tough_anno.mp4')
-    #process_video('rail_right.mp4', 'rail_right_anno.mp4')
+
+    # uncomment the following section to do tests on individual images
 
     #for path in glob.iglob('test_images/484.jpg'):
     #    img = mpimg.imread(path)
