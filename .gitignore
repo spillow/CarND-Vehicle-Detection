@@ -1,4 +1,5 @@
 training_data/
 garbage_test/
 clean_output/
+anno_output/
 *.swp

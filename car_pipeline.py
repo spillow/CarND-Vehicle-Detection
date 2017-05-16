@@ -95,9 +95,9 @@ def get_hog_features(img, orient, pix_per_cell, cell_per_block, vis=False, featu
     return output
 
 def extract_features(img):
-    orient = 9
+    orient = 11
     cell_per_block = 2
-    pix_per_cell = 8
+    pix_per_cell = 16
 
     hog1 = get_hog_features(img[:,:,0], orient, pix_per_cell, cell_per_block)
     hog2 = get_hog_features(img[:,:,1], orient, pix_per_cell, cell_per_block)
@@ -124,8 +124,8 @@ def train_classifer(X_data, Y_data):
             X_data, Y_data, test_size=0.2, random_state=rand_state)
 
     parameters = { 'C' : [1, 10] }
-    svc = LinearSVC()
-    clf = GridSearchCV(svc, parameters)
+    clf = LinearSVC()
+    clf = GridSearchCV(clf, parameters)
 
     print("Training...")
 
@@ -150,7 +150,7 @@ def find_car_candidates(img, classifier, scaler):
 
     all_boxes = []
     candidate_windows = []
-    conv_img = color_convert(img, 'YCrCb')
+    conv_img = color_convert(img, 'YUV')
     for (win_size, overlap, ystart, ystop, xstart) in window_sizes:
         windows = slide_window(conv_img,
             xy_window=(win_size, win_size),
@@ -209,6 +209,12 @@ def sanity_check(boxes):
         if abs(x1-x2) < 10 or abs(y1-y2) < 10:
             continue
 
+        if abs(x1-x2) == 0:
+            continue
+
+        if abs(y1-y2) / abs(x1-x2) > 3.0:
+            continue
+
         bs.append(b)
 
     return bs
@@ -257,7 +263,8 @@ def annotate_image(img, classifier, scaler, frame_info):
     (boxes, heatmap) = find_cars(imgcopy, classifier, scaler, frame_info)
     boxes = sanity_check(boxes)
     #show_img(draw_boxes(np.copy(img), boxes))
-    car_boxes = inter_frame_analysis(boxes, frame_info)
+    #car_boxes = inter_frame_analysis(boxes, frame_info)
+    car_boxes = inter_frame_analysis(boxes, None)
 
     img = draw_boxes(img, car_boxes)
 
@@ -301,22 +308,28 @@ def main():
 
     def process_video(input, output):
         frame_info = []
+        cnt = 0
         def process_image(img):
+            nonlocal cnt
             nonlocal frame_info
             (img, frameinfo) = annotate_image(img, classifier, scaler, frame_info)
             frame_info.append(frameinfo)
             if len(frame_info) > 4:
                 frame_info.pop(0)
+            #mpimg.imsave("anno_output/{}.jpg".format(cnt), img)
+            cnt += 1
             return img
         clip = VideoFileClip(input)
         clip_output = clip.fl_image(process_image)
         clip_output.write_videofile(output, audio=False)
 
     #process_video('test_video.mp4', 'output.mp4')
-    #process_video('project_video.mp4', 'output_full.mp4')
-    process_video('tough_case.mp4', 'tough_case_anno.mp4')
+    process_video('project_video.mp4', 'output_full.mp4')
+    #process_video('tough_case.mp4', 'tough_case_anno.mp4')
+    #process_video('both_cars_tough.mp4', 'both_cars_tough_anno.mp4')
+    #process_video('rail_right.mp4', 'rail_right_anno.mp4')
 
-    #for path in glob.iglob('test_images/6*.jpg'):
+    #for path in glob.iglob('test_images/484.jpg'):
     #    img = mpimg.imread(path)
     #    show_img(annotate_image(img, classifier, scaler, None)[0])
 
